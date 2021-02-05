@@ -320,7 +320,12 @@ Here are the datasets:
 -`MLPayData_Total.csv`: wide format
 -`baseball.csv`: long format
 
+
 Feel free to use either dataset to address the problems. 
+```{r}
+library('dplyr')
+baseball<-read.csv("baseball.csv")
+```
 
 ## EDA: Relationship between payroll changes and performance
 
@@ -335,17 +340,49 @@ i. To describe the increment of payroll in each year there are several possible 
 
 Explain why the log difference is more appropriate in this setup.
 
+Explanations: Using the log difference in this sort of time series model gives several advantages:
+
+(1) the nature of log difference makes it easier to track the changes. Increasing by 1% this year and decreasing by 1% next year would mean the value goes back to where it was under the log difference. Using absolute difference wouldn't achieve so.
+
+(2) sometimes, the payroll might grow a lot for some teams, using log difference could serve as sort of smoother.
 ii. Create a new variable `diff_log=log(payroll_2013) - log(payroll_2012)`. Hint: use `dplyr::lag()` function.
 
-iii. Create a long data table including: team, year, diff_log, win_pct
+```{r}
+baseball <- baseball %>%
+  group_by(team) %>%
+  mutate(log_payroll = log(payroll),
+         lagged_payroll = lag(log_payroll),
+         diff_payroll = payroll-lag(payroll),
+         diff_logpayroll = log_payroll-lagged_payroll)
+```
+iii. Create a long data table including: team, year, diff_logpayroll, win_pct
 
+A long data table means?
+```{r}
+baseball_longtbl<-baseball %>% select("team","year","diff_logpayroll","win_pct")
+```
 
 ## Exploratory questions
 
 i. Which five teams had highest increase in their payroll between years 2010 and 2014, inclusive?
 
+The teams with highest inter year increase in their payroll between years of 2010 and 2014 are Los Angeles Dodgers, Miami Marlins, Houston Astros, Kansas City Royals, and Texas Rangers.
+```{r}
+baseball_longtbl %>% 
+  filter(year > 2009 & year <2015) %>%
+  arrange(-diff_logpayroll) %>%
+  head
+```
 ii. Between 2010 and 2014, inclusive, which team(s) "improved" the most? That is, had the biggest percentage gain in wins?
 
+The teams with biggest inter year improvement is Philadelphia Phillies(2011), Los Angeles Angels(2014), Washington Nationals(2012), Boston Red Sox(2013), Cincinnati Reds(2012), and New York Yankess(2011).
+```{r}
+# the biggest percentage gain in wins, inter year (According to Prof.Zhao's interpretation)
+baseball_longtbl %>% 
+  filter(year > 2009 & year <2015) %>%
+  arrange(-win_pct) %>%
+  head
+```
 
 ## Do log increases in payroll imply better performance? 
 
@@ -353,12 +390,72 @@ Is there evidence to support the hypothesis that higher increases in payroll on 
 
 Pick up a few statistics, accompanied with some data visualization, to support your answer. 
 
+First we need to make a variable diff_win_pct to characterize the increase in performance.
+
+```{r}
+baseball <- baseball %>%
+  group_by(team) %>%
+  mutate(lagged_win_pct = lag(win_pct),
+         diff_win_pct = win_pct-lagged_win_pct)
+```
+
+We then use ggplot to present the relationship the increase in performance (win_pct) and increase in payroll on the log scale
+```{r}
+baseball %>%
+  ggplot(aes(x = diff_logpayroll, y = diff_win_pct)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', formula = 'y~x', se = F) +
+  labs(title = "Increase in Log payroll vs. Increase in winning percents")
+```
+This gives us some intuition that there's a correlation between the two vectors (as fitted, the slope is very big). But this is not yet convincing that the correlation is significant. So we have to check the t-statistic for significance.
+
+```{r}
+model_cor<-lm(baseball$diff_win_pct~baseball$diff_logpayroll);summary(model_cor)
+```
+From this data, we notice that the correlation between increase in performance and increase in payroll is not statistically significant, as we see in the t-test that Pr(>|t|)>0.05.
+
+Also, since that there's no randomized experiment, in order for us to say increase in payroll leads to increase in performance, the bar should be set relatively high. The regression can hardly be significant, as we can consider the points which are distant from the regression line by looking at their hat values.
+
+Typically, a well-fit model (with significant causal or correlation) don't have many points whose hat values are bigger than 0.10, but here we have over 10 such points. This explains why the model has poor significance.
+```{r}
+boxplot(hatvalues(model_cor),ylab="Hat Values",main="Hat Value of Points")
+```
+
 ## Comparison
 
 Which set of factors are better explaining performance? Yearly payroll or yearly increase in payroll? What criterion is being used? 
 
+In order to compare which of the factors are better explanatory variables for performance, we may compare 1. the significance of the regression 2. the residuals from the fit. 
 
 
+```{r}
+## yearly increase payroll & performance
+baseball %>%
+  ggplot(aes(x = diff_payroll, y = win_pct)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', formula = 'y~x', se = F) +
+  labs(title = "Yearly payroll vs. Winning percents")
+```
 
+```{r}
+## yearly payroll & performance
+baseball %>%
+  ggplot(aes(x = payroll, y = win_pct)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm', formula = 'y~x', se = F) +
+  labs(title = "Yearly payroll vs. Winning percents")
+```
+The summary statistics to compare the two models are
+```{r}
+model_yrpay_increase<-lm(baseball$win_pct~baseball$diff_payroll);summary(model_yrpay_increase)
+model_yrpay<-lm(baseball$win_pct~baseball$payroll);summary(model_yrpay)
+```
 
+This shows that both of the fit are statistically significant. However, we see that the pay roll seems to be a better fit than increase in pay roll, since the data points are more distributed along the fit line (instead of scattering relatively sparsely away on both sides of the regression line).
 
+This effect may be illustrated by taking a look at the standard deviation of the hatvalues of data points in two models:
+```{r}
+sd(hatvalues(model_yrpay_increase))
+sd(hatvalues(model_yrpay))
+```
+For this reason, I believe that Yearly payroll explains performance better. The real world intuition behind this is that the teams who have committed to providing higher pay attracts better players, whereas increase in the pay only stimulates short-term improvement in performance. The strong teams with originally very strong performance could hardly continue to increase their payroll, while their performance remains strong cross time.
