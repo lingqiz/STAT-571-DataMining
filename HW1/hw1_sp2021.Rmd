@@ -181,7 +181,7 @@ wsci %<>%
 
 iv. Any missing values? 
 
-There are no missing values in this dataset.
+**Student Answer:** There are no missing values in this dataset.
 ```{r, echo = TRUE, results = "markup"}
 summary(wsci)
 ```
@@ -191,7 +191,7 @@ summary(wsci)
 
 i. How many fields are there in this data?
 
-There are 10 fields in this dataset.
+**Student Answer:** There are 10 fields in this dataset.
 ```{r, echo=TRUE, results = "markup"}
 group_by(wsci, Field) %>%
   summarise(Count = n())
@@ -200,14 +200,14 @@ group_by(wsci, Field) %>%
 
 ii. What are the degree types?
 
-3 degree types: BS, MS, and PhD.
+**Student Answer:** 3 degree types: BS, MS, and PhD.
 ```{r, echo=TRUE, results = "markup"}
 distinct(wsci, Degree)
 ```
 
 iii. How many year's statistics are being reported here? 
 
-A total of 11 years.
+**Student Answer:** A total of 11 years.
 ```{r, echo=TRUE, results = "markup"}
 nrow(distinct(wsci, Year))
 ```
@@ -217,8 +217,7 @@ nrow(distinct(wsci, Year))
 
 Is there evidence that more males are in science-related fields vs `Non-S&E`? Provide summary statistics and a plot which shows the number of people by gender and by field. Write a brief summary to describe your findings.
 
-There are similar number of male and female BS degrees awarded in S&E field in 2015. There are a lot more female BS degrees awarded in non-S&E field in 2015.
-
+**Student Answer:** There are similar number of male and female BS degrees awarded in S&E field in 2015. There are a lot more female BS degrees awarded in non-S&E field in 2015.
 ```{r}
 male_count <- sum(filter(wsci, Year == 2015 & Degree == "BS" & Sex == "Male")$Number)
 famale_count <- sum(filter(wsci, Year == 2015 & Degree == "BS" & Sex == "Female")$Number)
@@ -226,7 +225,7 @@ famale_count <- sum(filter(wsci, Year == 2015 & Degree == "BS" & Sex == "Female"
 male_count / (male_count + famale_count)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results = "markup"}
+```{r echo=TRUE, message=FALSE, warning=FALSE, results = "markup"}
   filter(wsci, Year == 2015 & Degree == "BS") %>% 
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
   group_by(SE, Sex) %>% 
@@ -237,9 +236,8 @@ male_count / (male_count + famale_count)
   ggtitle("BS Degrees granted by S&E vs non-S&E by gender in 2015")
 ```
 
-In this dataset, looking at year 2015 and BS degree awarded, there are about 60% female and 40% male. However, In certain field, such as Computer Science, Engineering, over 75% of the awarded BS degrees in 2015 are for male. Other science field such as Earth, Atmospheric and Ocean Science, Physical sciences, Math and Statistics, over 50% of the awarded BS degree are for male. Indeed, there is an hugh underrepresentation of female in these S&E field. 
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+**Student Answer:** In this dataset, looking at year 2015 and BS degree awarded, there are about 60% female and 40% male. However, In certain field, such as Computer Science, Engineering, over 75% of the awarded BS degrees in 2015 are for male. Other science field such as Earth, Atmospheric and Ocean Science, Physical sciences, Math and Statistics, over 50% of the awarded BS degree are for male. Indeed, there is an hugh underrepresentation of female in these S&E field. 
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
   male_data <- wsci %>% filter(Year == 2015 & Degree == "BS" & Sex == "Male") %>% arrange(Field)
   female_data <-wsci %>% filter(Year == 2015 & Degree == "BS" & Sex == "Female") %>% arrange(Field)
   ratio <- male_data$Number / female_data$Number
@@ -261,8 +259,8 @@ In this dataset, looking at year 2015 and BS degree awarded, there are about 60%
 
 Describe the number of people by type of degree, field, and gender. Do you see any evidence of gender effects over different types of degrees? Again, provide graphs to summarize your findings.
 
-The pattern of gender imbalance in S&E field is similar across BS, MS and PhD degree, if not worse for PhDs.
-```{r, echo=FALSE, fig.width=8, fig.height=10, message=FALSE, warning=FALSE}
+**Student Answer:** The pattern of gender imbalance in S&E field is similar across BS, MS and PhD degree, if not worse for PhDs.
+```{r, echo=TRUE, fig.width=8, fig.height=10, message=FALSE, warning=FALSE}
 plot_summary <- function(degree_type) 
 {
   male_data <- wsci %>% filter(Year == 2015 & Degree == degree_type & Sex == "Male") %>% arrange(Field)
@@ -297,9 +295,8 @@ grid.arrange(f1, f2, f3, nrow = 3)
 
 In this last portion of the EDA, we ask you to provide evidence numerically and graphically: Do the number of degrees change by gender, field, and time? 
 
-The total number of degrees awarded are increasing over the years. This is true for both gender, and most of the fields.
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+**Student Answer:** The total number of degrees awarded are increasing over the years. This is true for both gender, and most of the fields.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
   wsci %>%
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
   group_by(SE, Sex, Year, Degree) %>%
@@ -309,7 +306,8 @@ The total number of degrees awarded are increasing over the years. This is true 
   facet_grid(SE~Degree, scales = "free_y") +
   ggtitle("Degrees granted by sex, degree and SE")
 ```
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
   wsci %>%
   filter(Field != "Non-S&E") %>%
   group_by(Field, Year, Sex) %>%
@@ -320,9 +318,8 @@ The total number of degrees awarded are increasing over the years. This is true 
   ggtitle("Degrees granted across different field")
 ```
 
-The gender breakdown of SE/non-SE field and degree type have stayed relatively the same for the past 10 years.
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+**Student Answer:** The gender breakdown of SE/non-SE field and degree type have stayed relatively the same for the past 10 years.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
   wsci %>% 
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
   group_by(SE, Sex, Year, Degree) %>%
@@ -335,9 +332,8 @@ The gender breakdown of SE/non-SE field and degree type have stayed relatively t
   ggtitle("Female proportion in SE/non-SE across year")
 ```
 
-The same (i.e., the relatively constant gender breakdown) is true for almost all of the field in our dataset.
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+**Student Answer:** The same (i.e., the relatively constant gender breakdown) is true for almost all of the field in our dataset.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
   wsci %>% 
   group_by(Field, Degree, Year) %>%
   mutate(Ratio = Number / sum(Number)) %>%
@@ -354,9 +350,8 @@ The same (i.e., the relatively constant gender breakdown) is true for almost all
 
 Finally, is there evidence showing that women are underrepresented in data science? Data science is an interdisciplinary field of computer science, math, and statistics. You may include year and/or degree.
 
-Yes, female proportion in both computer science, and math/statistics are below 60%, furthermore, females are extremely underrepresented in the field of computer science.   
-
-```{r}
+**Student Answer:** Yes, female proportion in both computer science, and math/statistics are below 60%, furthermore, females are extremely underrepresented in the field of computer science.   
+```{r, echo=TRUE}
 wsci %>% 
   filter(Field %in% c("Computer sciences", "Mathematics and statistics")) %>%
   group_by(Field, Degree, Year) %>%
@@ -374,7 +369,7 @@ wsci %>%
 
 Summarize your findings focusing on answering the questions regarding if we see consistent patterns that more males pursue science-related fields. Any concerns with the data set? How could we improve on the study?
 
-Throughout our analysis, we have seen evidences that indicate:
+**Student Answer:** Throughout our analysis, we have seen evidences that indicate:
 
 1. Female are generally underrepresented in S&E related field.
 
