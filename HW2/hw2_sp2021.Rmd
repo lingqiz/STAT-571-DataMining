@@ -249,7 +249,7 @@ brca_sub <- log2(brca_sub + 1e-10)
 2. Apply kmeans on the transformed dataset with 4 centers and output the discrepancy table between the real sub-type `brca_subtype` and the cluster labels.
 
 ```{r}
-brca_sub_kmeans <- kmeans(x = brca_sub, 4)
+brca_sub_kmeans <- kmeans(x = brca_sub, centers = 4, nstart = 10)
 table(brca_subtype$BRCA_Subtype_PAM50, brca_sub_kmeans$cluster)
 ```
 
@@ -301,7 +301,7 @@ grid.arrange(plot_1, plot_2, ncol = 2)
 
 a) Use the first 4 PCs of the centered and unscaled data and apply kmeans. Find a reasonable number of clusters using within sum of squared with the elbow rule.
 
-**Student Answer:** K = 4 is a reasonable number for cluster according to the elbow rule (although in our particular case the location of the "elbow" is a bit ambiguous).
+**Student Answer:** K = 4 is a reasonable number for cluster according to the elbow rule (although in our particular case the location of the "elbow" is slightly ambiguous).
 
 ```{r}
 wss <- function(df, k) 
@@ -309,7 +309,7 @@ wss <- function(df, k)
   kmeans(df, k, nstart = 10)$tot.withinss
 }
 
-num_k <- 2:10
+num_k <- 2:15
 wss_values <- map_dbl(num_k, function(k) wss(pca_ct$x[,1:4], k))
 
 data.frame("k" = num_k, "wss" = wss_values) %>%
@@ -339,23 +339,25 @@ plot_1 <-
   data.table(x = pca_ct$x[, 1], 
            y = pca_ct$x[, 2],
            label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
-           cluster = as.factor(pca_ct_kmeans$cluster)) %>%
-  ggplot() + 
-  geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
-  labs(title = "Kmeans with 4PCs", x = 'PC 1', y = 'PC 2')
-
-brca_sub_kmeans <- kmeans(x = brca_sub, centers = 4, nstart = 10)
-
-plot_2 <-
-  data.table(x = pca_ct$x[, 1], 
-           y = pca_ct$x[, 2],
-           label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
            cluster = as.factor(brca_sub_kmeans$cluster)) %>%
   ggplot() + 
   geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
   labs(title = "Kmeans with Original Data", x = 'PC 1', y = 'PC 2') 
 
+plot_2 <-
+  data.table(x = pca_ct$x[, 1], 
+           y = pca_ct$x[, 2],
+           label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
+           cluster = as.factor(pca_ct_kmeans$cluster)) %>%
+  ggplot() + 
+  geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
+  labs(title = "Kmeans with 4PCs", x = 'PC 1', y = 'PC 2')
+
 grid.arrange(plot_1, plot_2, ncol = 2)
+```
+```{r}
+table(brca_subtype$BRCA_Subtype_PAM50, brca_sub_kmeans$cluster)
+table(brca_subtype$BRCA_Subtype_PAM50, pca_ct_kmeans$cluster)
 ```
 
 d) Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered) Plot this patient in the plot in iv) with a black dot. Calculate the Euclidean distance between this patient and each of centroid of the cluster. Can you tell which sub-type this patient might have? 
