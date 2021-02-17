@@ -249,7 +249,7 @@ brca_sub <- log2(brca_sub + 1e-10)
 2. Apply kmeans on the transformed dataset with 4 centers and output the discrepancy table between the real sub-type `brca_subtype` and the cluster labels.
 
 ```{r}
-brca_sub_kmeans <- kmeans(x = brca_sub, centers = 4, nstart = 10)
+brca_sub_kmeans <- kmeans(x = brca_sub, centers = 4, nstart = 50)
 table(brca_subtype$BRCA_Subtype_PAM50, brca_sub_kmeans$cluster)
 ```
 
@@ -257,7 +257,7 @@ table(brca_subtype$BRCA_Subtype_PAM50, brca_sub_kmeans$cluster)
 
 a) Apply PCA on the centered and scaled dataset. How many PCs should we use and why? You are encouraged to use `irlba::irlba()`.
 
-**Student Answer:** The top 5 PCs seem to explain a lot more variance than the rest of the PCs, thus 5 PCs would be a reasonable choice, although we might also want to take into account of the performance of clustering.
+**Student Answer:** The top 4 PCs seem to explain a lot more variance than the rest of the PCs with a clear elbow point at 4 PCs. Thus 4 PCs would be a reasonable choice, although we might also want to take into account of the performance of clustering.
 ```{r}
 pca_ct_sc <- prcomp(brca_sub, center = T, scale. = T)
 pca_ct <- prcomp(brca_sub, center = T, scale. = F)
@@ -274,7 +274,7 @@ data.frame("index"=1:10, "pve"=pve) %>%
 b) Plot PC1 vs PC2 of the centered and scaled data and PC1 vs PC2 of the centered but unscaled data side by side. Should we scale or not scale for clustering propose? Why? (Hint: to put plots side by side,
 use `gridExtra::grid.arrange()` or `ggpubr::ggrrange()` or `egg::ggrrange()` for ggplots; use `fig.show="hold"` as chunk option for base plots)
 
-We should NOT scale for clustering purpose. Since from the two plots below, the unscaled PCs can produce much better separation of different cancer types (especially the difference between Basal and Her2 Type).
+**Student Answer:** We should NOT scale for clustering purpose. Since from the two plots below, the unscaled PCs can produce much better separation of different cancer types (especially the difference between Basal and Her2 Type).
 
 ```{r, fig.width=12, fig.height=5}
 plot_1 <-
@@ -310,7 +310,7 @@ wss <- function(df, k)
 }
 
 num_k <- 2:15
-wss_values <- map_dbl(num_k, function(k) wss(pca_ct$x[,1:4], k))
+wss_values <- map_dbl(num_k, function(k) wss(pca_ct$x[, 1:4], k))
 
 data.frame("k" = num_k, "wss" = wss_values) %>%
   ggplot(aes(x = k, y = wss)) + 
@@ -320,52 +320,80 @@ data.frame("k" = num_k, "wss" = wss_values) %>%
     
 b) Choose an optimal cluster number and apply kmeans. Compare the real sub-type and the clustering label as follows: Plot scatter plot of PC1 vs PC2. Use point color to indicate the true cancer type and point shape to indicate the clustering label. Plot the kmeans centroids with black dots. Summarize how good is clustering results compared to the real sub-type.
 
+**Student Answer:** The clustering algorithm can successfully distinguish between the Basal vs. LumA/B subtype. A large portion of LumA subtype is also isolated from the rest. However, the Her2 subtype cannot be well separated from the rest, and there are also many mislabeling within LumA/B subtype.
 ```{r}
-pca_ct_kmeans <- kmeans(x = pca_ct$x[,1:4], centers = 4, nstart = 100)
+n_cluster <- 4
+n_PCs <- 4
 
-data.table(x = pca_ct$x[, 1], 
-           y = pca_ct$x[, 2],
-           label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
-           cluster = as.factor(pca_ct_kmeans$cluster)) %>%
-  ggplot() + 
-  geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
-  labs(title = "Centered and Unscaled", x = 'PC 1', y = 'PC 2') 
+pca_ct_kmeans <- kmeans(x = pca_ct$x[, 1:n_PCs], centers = n_cluster, nstart = 100)
+centroids <- data.frame(pca_ct_kmeans$centers[, 1:2])
+centroids$cluster = as.factor(1:n_cluster)
+
+plot_data <- data.table(x = pca_ct$x[, 1], 
+                        y = pca_ct$x[, 2],
+                        label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
+                        cluster = as.factor(pca_ct_kmeans$cluster))
+
+ggplot() + 
+geom_point(data = plot_data, aes(x = x, y = y, col = label, shape = cluster)) + 
+geom_point(data = centroids, aes(x = PC1, y = PC2, shape = cluster)) + 
+labs(title = "Centered and Unscaled", x = 'PC 1', y = 'PC 2') 
 ```
     
 c) Compare the clustering result from applying kmeans to the original data and the clustering result from applying kmeans to 4 PCs. Does PCA help in kmeans clustering? What might be the reasons if PCA helps?
 
-```{r, fig.width=12, fig.height=5}
-plot_1 <-
-  data.table(x = pca_ct$x[, 1], 
-           y = pca_ct$x[, 2],
-           label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
-           cluster = as.factor(brca_sub_kmeans$cluster)) %>%
+**Student Answer:** In this case, PCA did NOT help in kmeans clustering in terms of the quality of the cluster. The only improvement is that the kmeans algorithm runs much faster with only 4 PCs. In general, PCA might help clustering since it picks up dimensions that are more important, thus can help reduce the noise in clustering. 
+```{r, fig.width=14, fig.height=6}
+
+plot_1 <- 
   ggplot() + 
-  geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
-  labs(title = "Kmeans with Original Data", x = 'PC 1', y = 'PC 2') 
+  geom_point(data = plot_data, aes(x = x, y = y, col = label, shape = cluster)) +
+  geom_point(data = centroids, aes(x = PC1, y = PC2, shape = cluster)) + 
+  labs(title = "kmeans with 4 PCs", x = 'PC 1', y = 'PC 2') 
 
 plot_2 <-
   data.table(x = pca_ct$x[, 1], 
-           y = pca_ct$x[, 2],
-           label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
-           cluster = as.factor(pca_ct_kmeans$cluster)) %>%
+             y = pca_ct$x[, 2],
+             label = as.factor(brca_subtype$BRCA_Subtype_PAM50),
+             cluster = as.factor(brca_sub_kmeans$cluster)) %>%
   ggplot() + 
   geom_point(aes(x = x, y = y, col = label, shape = cluster)) + 
-  labs(title = "Kmeans with 4PCs", x = 'PC 1', y = 'PC 2')
+  labs(title = "kmeans with Original Data", x = 'PC 1', y = 'PC 2') 
 
 grid.arrange(plot_1, plot_2, ncol = 2)
 ```
+
 ```{r}
+print("Kmeans with Original Data")
 table(brca_subtype$BRCA_Subtype_PAM50, brca_sub_kmeans$cluster)
+
+print("Kmeans with 4PCs")
 table(brca_subtype$BRCA_Subtype_PAM50, pca_ct_kmeans$cluster)
 ```
 
 d) Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered) Plot this patient in the plot in iv) with a black dot. Calculate the Euclidean distance between this patient and each of centroid of the cluster. Can you tell which sub-type this patient might have? 
-    
+
+**Student Answer:** This patient is most likely to have the Basal subtype cancer. The Euclidean distance to each of the centroid is 122, 469, 496, 508, respectively.
 ```{r}
 x_patient <- fread("data/brca_x_patient.csv")
+x_patient <- log2(x_patient[, sel_cols, with=F] + 1e-10) - pca_ct$center
+
+patient = data.frame("PC1" = as.matrix(x_patient[1, ]) %*% as.matrix(pca_ct$rotation[, 1]),
+                     "PC2" = as.matrix(x_patient[1, ]) %*% as.matrix(pca_ct$rotation[, 2]))
+
+ggplot() + 
+geom_point(data = plot_data, aes(x = x, y = y, col = label, shape = cluster)) + 
+geom_point(data = centroids, aes(x = PC1, y = PC2, shape = cluster)) + 
+geom_point(data = patient, aes(x = PC1, y = PC2), shape = 21, size = 4, fill = 'red') + 
+labs(title = "Centered and Unscaled", x = 'PC 1', y = 'PC 2')
 ```
 
+```{r}
+for (idx in 1:4)
+{
+  print(norm(as.matrix(centroids[idx, 1:2]) - as.matrix(patient[1, ])))
+}
+```
 
 # Case study 3: Auto data set
 
