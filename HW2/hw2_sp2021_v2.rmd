@@ -451,7 +451,7 @@ Presume that $\mathbf{x}$ and $\mathbf{y}$ are linearly related with a normal er
 
 We can create a sample input vector ($n = 40$) for $\mathbf{x}$ with the following code:
 
-```{r, eval = F, echo = TRUE}
+```{r}
 # Generates a vector of size 40 with equally spaced values between 0 and 1, inclusive
 x <- seq(0, 1, length = 40)
 ```
@@ -489,7 +489,7 @@ summary(fit)
 
 ii. What is the 95% confidence interval for $\boldsymbol{\beta}_1$? Does this confidence interval capture the true $\boldsymbol{\beta}_1$?
 
-**Student Answer:** The $95\%$ interval for $\boldsymbol{\beta}_1$ is $[-1.034, 2.85]$. The interval capture the true $\boldsymbol{\beta}_1 = 1.2$.
+**Student Answer:** The $95\%$ interval for $\boldsymbol{\beta}_1$ is $[-1.034, 2.85]$. The interval captures the true $\boldsymbol{\beta}_1 = 1.2$.
 ```{r}
 confint(fit)
 ```
@@ -536,7 +536,7 @@ iii. Comment on how well the model assumptions are met for the sample you used.
 This part aims to help you understand the notion of sampling statistics and confidence intervals. Let's concentrate on estimating the slope only.  
 
 Generate 100 samples of size $n = 40$, and estimate the slope coefficient from each sample. We include some sample code below, which should guide you in setting up the simulation. Note: this code is easier to follow but suboptimal; see the appendix for a more optimal R-like way to run this simulation.
-```{r, eval = F, echo = TRUE}
+```{r}
 lm_sim <- function(n_sim)
 {
   # Inializing variables. Note b_1, upper_ci, lower_ci are vectors
@@ -565,7 +565,7 @@ lm_sim <- function(n_sim)
 
 i. Summarize the LS estimates of $\boldsymbol{\beta}_1$ (stored in `results$b1`). Does the sampling distribution agree with theory? 
 
-**Student Answer:** The sampling distribution agrees well with the theory: $\boldsymbol{\beta}_1$ is Gaussian distributed, with a mean around $1.2$ (i.e., unbiased,) and a variance around $\frac{\sigma^2}{\sum_{i=1}^{n}(x_i - \bar{x})^2} = 1.14$. (We have increased n_sim to 10,000 to get a more accurate number.)
+**Student Answer:** The sampling distribution agrees well with the theory: $\boldsymbol{\beta}_1$ is Gaussian distributed, with a mean around $1.2$ (i.e., unbiased) and a variance around $\frac{\sigma^2}{\sum_{i=1}^{n}(x_i - \bar{x})^2} = 1.14$. (We have increased n_sim to 10,000 to get a more accurate number.)
 
 ```{r}
 results <- lm_sim(10000)
@@ -599,7 +599,7 @@ results$index = 1:100
 
 ggplot(results) + 
   geom_pointrange(aes(x = index, y = b1, ymin = lower_ci, ymax = upper_ci)) + 
-  geom_hline(yintercept=2, linetype="dashed", color = "red", size=1) + 
+  geom_hline(yintercept=1.2, linetype="dashed", color = "red", size=1) + 
   labs(x = '# simulation (sorted)', y = 'b1 and 95% CI')
 ```
 
