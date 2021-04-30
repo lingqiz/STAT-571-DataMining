@@ -1,0 +1,372 @@
+---
+title: "Final R Code"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=4)
+options(scipen = 0, digits = 3)  # controls base R output
+
+
+if(!require('pacman')) {install.packages('pacman')}
+pacman::p_load(bestglm, glmnet, ROCR, xtable, reportROC, dplyr,GGally, prediction, leaps, car, tidyverse, pROC, caret) # add the packages needed
+```
+
+
+## R Markdown
+
+```{r}
+set.seed(3)
+library(data.table)
+responses <- as.data.frame(fread("~/Desktop/Final Project Data/responses.csv",skip=1, header=FALSE))[,-1]
+labels <- as.matrix(fread("~/Desktop/Final Project Data/labels.csv",skip=1, header=FALSE))[,-1]
+roi <- as.matrix(fread("~/Desktop/Final Project Data/roi.csv",skip=1, header=FALSE))[,-1]
+roi_names <- as.matrix(fread("~/Desktop/Final Project Data/roi_names.csv",skip=1, header=FALSE))
+```
+
+
+```{r}
+r1 <- responses[,which(roi==1)]
+colnames(r1) <- paste0("V1_", as.character(c(1:ncol(r1))))
+r2 <- responses[,which(roi==2)]
+colnames(r2) <- paste0("V2_", as.character(c(1:ncol(r2))))
+r3 <- responses[,which(roi==3)]
+colnames(r3) <- paste0("V3_", as.character(c(1:ncol(r3))))
+r4 <- responses[,which(roi==4)]
+colnames(r4) <- paste0("V3A_", as.character(c(1:ncol(r4))))
+r5 <- responses[,which(roi==5)]
+colnames(r5) <- paste0("V3B_", as.character(c(1:ncol(r5))))
+r6 <- responses[,which(roi==6)]
+colnames(r6) <- paste0("V4_", as.character(c(1:ncol(r6))))
+r7 <- responses[,which(roi==7)]
+colnames(r7) <- paste0("LatOcc_", as.character(c(1:ncol(r7))))
+
+X <- cbind(r1,r2,r3,r4,r5,r6,r7)
+```
+
+
+```{r}
+Y <- as.matrix(labels[1,])
+unique(Y)
+colnames(Y) <- "type"
+Y <- ifelse(Y=="animal",1,0)
+unique(Y)
+```
+
+
+
+```{r}
+Y_X <- cbind(Y,X)
+rownames(Y_X) <- c(1:nrow(Y_X))
+
+X.pc <- prcomp(X, scale=TRUE, rank. = 20)
+
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+corr.table <- as.data.frame(X.pc$x) %>% select_if(is.numeric) %>% cor() %>% reshape2::melt() 
+corr.table %>% ggplot(aes(x=Var1, y=Var2, fill=value)) + geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Correlation"))
+
+
+
+Y_X.pc <- as.data.frame(cbind(Y, X.pc$x))
+row.names(Y_X.pc) <- c(1:nrow(Y_X.pc))
+```
+
+
+```{r}
+require(nnet)
+# Training the multinomial model
+fit1 <- glm(type ~., family = "binomial", data = Y_X.pc)
+summary(fit1)
+```
+
+
+```{r}
+# par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+# plot(fit1, 1, pch=16) # residual plot
+# abline(h=0, col="blue", lwd=2)
+# plot(fit1, 2) # qqplot
+```
+
+
+```{r}
+
+var.min2 <- data.frame(summary(fit1)$coef[summary(fit1)$coef[,4] <= .05, 4])
+var.min2 <- rownames(var.min2)[-1]
+data_fit2 <- Y_X.pc[,c("type",var.min2)]
+
+fit2 <- glm(type ~., data = data_fit2, family = "binomial")
+summary(fit2)
+```
+
+
+```{r}
+# par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+# plot(fit2, 1, pch=16) # residual plot
+# abline(h=0, col="blue", lwd=2)
+# plot(fit2, 2) # qqplot
+```
+
+
+```{r}
+X.lasso <- model.matrix(type~., Y_X)[,-1]
+Y.lasso <- Y_X[,1]
+
+fit3.cv <- cv.glmnet(X.lasso, Y.lasso, alpha=1, nfolds=10, intercept = T)
+coef.min <- coef(fit3.cv, s="lambda.min")
+var.min3 <- coef.min@Dimnames[[1]][coef.min@i + 1][-1]
+
+data_fit3 <- as.data.frame(X.lasso)
+
+# set the response variable in this new dataframe
+data_fit3$type <- Y.lasso 
+
+## LASSO selected variables can be subsett with their column names
+data_fit3 <- data_fit3[,c("type",var.min3)]
+
+# debiased or relaxed LASSO
+fit3 <- lm(type ~ ., data=data_fit3)
+summary(fit3)
+```
+
+
+```{r}
+# par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+# plot(fit3, 1, pch=16) # residual plot
+# abline(h=0, col="blue", lwd=2)
+# plot(fit3, 2) # qqplot
+```
+
+
+```{r}
+var.min4 <- data.frame(summary(fit3)$coef[summary(fit3)$coef[,4] <= .05, 4])
+var.min4 <- rownames(var.min4)[-1]
+data_fit4 <- data_fit3[,c("type",var.min4)]
+
+fit4 <- glm(type ~., data = data_fit4, family = "binomial")
+summary(fit4)
+```
+
+
+```{r}
+# par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+# plot(fit4, 1, pch=16) # residual plot
+# abline(h=0, col="blue", lwd=2)
+# plot(fit4, 2) # qqplot
+```
+
+
+### Prediction and Testing
+
+```{r}
+library(data.table)
+responses_test <- as.data.frame(fread("~/Desktop/Final Project Data/responses_test.csv",skip=1, header=FALSE))[,-1]
+labels_val <- as.matrix(fread("~/Desktop/Final Project Data/labels_val.csv",skip=1, header=FALSE))[,-1]
+```
+
+
+```{r}
+r1_test <- responses_test[,which(roi==1)]
+colnames(r1_test) <- paste0("V1_", as.character(c(1:ncol(r1_test))))
+r2_test <- responses_test[,which(roi==2)]
+colnames(r2_test) <- paste0("V2_", as.character(c(1:ncol(r2_test))))
+r3_test <- responses_test[,which(roi==3)]
+colnames(r3_test) <- paste0("V3_", as.character(c(1:ncol(r3_test))))
+r4_test <- responses_test[,which(roi==4)]
+colnames(r4_test) <- paste0("V3A_", as.character(c(1:ncol(r4_test))))
+r5_test <- responses_test[,which(roi==5)]
+colnames(r5_test) <- paste0("V3B_", as.character(c(1:ncol(r5_test))))
+r6_test <- responses_test[,which(roi==6)]
+colnames(r6_test) <- paste0("V4_", as.character(c(1:ncol(r6_test))))
+r7_test <- responses_test[,which(roi==7)]
+colnames(r7_test) <- paste0("LatOcc_", as.character(c(1:ncol(r7_test))))
+
+X_test <- cbind(r1_test,r2_test,r3_test,r4_test,r5_test,r6_test,r7_test)
+
+
+
+Y_test <- as.matrix(labels_val[1,])
+colnames(Y_test) <- "type"
+Y_test <- ifelse(Y_test=="animal",1,0)
+
+Y_X_test <- cbind(Y_test,X_test)
+rownames(Y_X_test) <- c(1:nrow(Y_X_test))
+
+X_test.pc <- prcomp(X_test, scale=TRUE, rank. = 20)
+
+Y_X_test.pc <- as.data.frame(cbind(Y_test, X_test.pc$x))
+row.names(Y_X_test.pc) <- c(1:nrow(Y_X_test.pc))
+```
+
+
+
+
+```{r}
+library(pROC)
+fit1.roc<- roc(Y, fit1$fitted, plot=T, col="blue")
+fit2.roc<- roc(Y, fit2$fitted, plot=T, col="blue")
+fit3.roc<- roc(Y, fit3$fitted, plot=T, col="blue")
+fit4.roc<- roc(Y, fit4$fitted, plot=T, col="blue")
+
+fit1.roc$auc
+fit2.roc$auc
+fit3.roc$auc
+fit4.roc$auc
+
+# plot(fit1.roc, col="red", mail="ROC", main="ROC Curves - Training Data")
+# plot(fit2.roc, col="blue", add=TRUE)
+# plot(fit3.roc, col="green", add=TRUE)
+# plot(fit4.roc, col="black", add=TRUE)
+# 
+# legend("bottomright", legend=c("PCA+LR (AUC=0.72)", "PPCA+LR (AUC=0.71)", "LASSO (AUC=0.95)", "LASSO+ANOVA (AUC=0.93)"), lty=c(1,1), lwd=c(2,2), col=c("red","blue","green","black"))
+
+plot(1-fit1.roc$specificities, 
+     fit1.roc$sensitivities, col="red", lwd=3, type="l",
+     xlab="False Positive", 
+     ylab="Sensitivity",
+     main="ROC Curves")
+lines(1-fit2.roc$specificities, fit2.roc$sensitivities, col="blue", lwd=4)
+lines(1-fit3.roc$specificities, fit3.roc$sensitivities, col="green", lwd=4)
+lines(1-fit4.roc$specificities, fit4.roc$sensitivities, col="black", lwd=4)
+legend("bottomright",
+       c(paste0("PCA+LR, AUC=", round(fit1.roc$auc,2)), 
+         paste0("PCA+LR+ANOVA, AUC=", round(fit2.roc$auc, 2)), 
+         paste0("LASSO, AUC=", round(fit3.roc$auc, 2)),
+         paste0("LASSO+ANOVA, AUC=", round(fit4.roc$auc, 2))),
+       col=c("red", "blue", "green","black"),
+       lty=7)
+```
+
+
+```{r}
+fit1.roc$auc
+fit2.roc$auc
+fit3.roc$auc
+fit4.roc$auc
+```
+
+
+
+
+### Misclassification Error
+
+```{r}
+# prob <- sum(Y==1)/length(Y)
+
+# fit1_rmse <- rmse(Y_test , fit1.predict)
+# fit2_rmse <- rmse(Y_test , fit2.predict)
+# fit3_rmse <- rmse(Y_test , fit3.predict)
+# fit4_rmse <- rmse(Y_test , fit4.predict)
+# 
+# fit1_rmse
+# fit2_rmse
+# fit3_rmse
+# fit4_rmse
+```
+
+
+```{r}
+### Training
+rmse = function(a,b) { sqrt(mean((a-b)^2)) }
+fit1.predict <- predict(fit1,  type = "response")
+fit1.predict <- ifelse(fit1.predict > 0.5, 1, 0)
+fit2.predict <- predict(fit2, type = "response")
+fit2.predict <- ifelse(fit2.predict > 0.5, 1, 0)
+fit3.predict <- predict(fit3, type = "response")
+fit3.predict <- ifelse(fit3.predict > 0.5, 1, 0)
+fit4.predict <- predict(fit4, type = "response")
+fit4.predict <- ifelse(fit4.predict > 0.5, 1, 0)
+fit1.error=mean(Y != fit1.predict)
+fit2.error=mean(Y != fit2.predict)
+fit3.error=mean(Y != fit3.predict)
+fit4.error=mean(Y != fit4.predict)
+
+fit1.accuracy <- 1-fit1.error
+fit2.accuracy <- 1-fit2.error
+fit3.accuracy <- 1-fit3.error
+fit4.accuracy <- 1-fit4.error
+
+
+fit1.accuracy
+fit2.accuracy
+fit3.accuracy
+fit4.accuracy
+```
+
+
+
+
+```{r}
+### Testing
+fit1.predict <- predict(fit1, newdata = Y_X_test.pc, type = "response")
+fit1.predict <- ifelse(fit1.predict > 0.5, 1, 0)
+fit2.predict <- predict(fit2, newdata = Y_X_test.pc, type = "response")
+fit2.predict <- ifelse(fit2.predict > 0.5, 1, 0)
+fit3.predict <- predict(fit3, newdata = Y_X_test, type = "response")
+fit3.predict <- ifelse(fit3.predict > 0.5, 1, 0)
+fit4.predict <- predict(fit4, newdata = Y_X_test, type = "response")
+fit4.predict <- ifelse(fit4.predict > 0.5, 1, 0)
+
+fit1.error=mean(Y_test != fit1.predict)
+fit2.error=mean(Y_test != fit2.predict)
+fit3.error=mean(Y_test != fit3.predict)
+fit4.error=mean(Y_test != fit4.predict)
+
+fit1.accuracy <- 1-fit1.error
+fit2.accuracy <- 1-fit2.error
+fit3.accuracy <- 1-fit3.error
+fit4.accuracy <- 1-fit4.error
+
+
+fit1.accuracy
+fit2.accuracy
+fit3.accuracy
+fit4.accuracy
+```
+
+
+```{r}
+library(sjmisc)
+fit3_summary <- summary(fit3)
+fit3_var <- as.matrix(rownames(fit3_summary$coefficients))
+V1_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V1"))/ncol(r1)
+V2_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V2"))/ncol(r2)
+V3_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V3"))/ncol(r3)
+V3A_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V3A"))/ncol(r4)
+V3B_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V3B"))/ncol(r5)
+V4_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="V4"))/ncol(r6)
+LacOcc_prop.fit3 <- sum(apply(fit3_var,FUN=str_contains,MARGIN = 1,pattern="LatOcc"))/ncol(r7)
+
+order(c(V1_prop.fit3,V2_prop.fit3,V3_prop.fit3,V3A_prop.fit3,V3B_prop.fit3,V4_prop.fit3,LacOcc_prop.fit3))
+max(c(V1_prop.fit3,V2_prop.fit3,V3_prop.fit3,V3A_prop.fit3,V3B_prop.fit3,V4_prop.fit3,LacOcc_prop.fit3))
+LacOcc_prop.fit3
+```
+
+
+```{r}
+library(sjmisc)
+fit4_summary <- summary(fit4)
+fit4_var <- as.matrix(rownames(fit4_summary$coefficients))
+V1_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V1"))/ncol(r1)
+V2_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V2"))/ncol(r2)
+V3_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V3"))/ncol(r3)
+V3A_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V3A"))/ncol(r4)
+V3B_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V3B"))/ncol(r5)
+V4_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="V4"))/ncol(r6)
+LacOcc_prop.fit4 <- sum(apply(fit4_var,FUN=str_contains,MARGIN = 1,pattern="LatOcc"))/ncol(r7)
+
+order(c(V1_prop.fit4,V2_prop.fit4,V3_prop.fit4,V3A_prop.fit4,V3B_prop.fit4,V4_prop.fit4,LacOcc_prop.fit4))
+max(c(V1_prop.fit4,V2_prop.fit4,V3_prop.fit4,V3A_prop.fit4,V3B_prop.fit4,V4_prop.fit4,LacOcc_prop.fit4))
+V3B_prop.fit4
+
+```
+
+
+
