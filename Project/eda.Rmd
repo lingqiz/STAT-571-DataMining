@@ -1,0 +1,166 @@
+---
+title: "STAT571_Final Project"
+author: "Shaolong Wu"
+date: "4/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(data.table)
+responses<-as.data.frame(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/responses.csv",skip=1,header=FALSE))[,-1]
+
+responses_test<-as.data.frame(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/responses_test.csv",skip=1,header=FALSE))[,-1]
+
+labels<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/labels.csv",skip=1,header=FALSE))[,-1]
+
+labels_val<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/labels_val.csv",skip=1,header=FALSE))[,-1]
+
+## ROI is categorical: the values are 1 to 8
+roi <- read.csv("~/Desktop/571Datasets/Project_data/roi.csv")
+roi_names <- as.matrix(fread("~/Desktop/571Datasets/Project_data/roi_names.csv",skip=1, header=FALSE))
+
+stimuli_test<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/stimuli_test.csv",skip=1,header=FALSE))[,-1]
+
+stimuli<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/stimuli.csv",skip=1,header=FALSE))[,-1]
+```
+
+
+Find the dimension of the data frame to be 1750 units by 8000 voxels of each unit, which is a stimuli picture.
+```{r}
+dim(responses)
+
+nrow(responses[1])
+v1<-responses[1]
+# responses[1]$V2
+# responses[2]$V3
+v1$V2[1:5] ## the first five responding pixels to picture 1
+```
+
+
+now, we first want to specify the column names so that we can revoke them more easily:
+```{r}
+col.responses<-paste0("r_",as.character(c(1:ncol(responses))))
+colnames(responses)<-col.responses
+
+X <- responses
+dim(X)
+
+range(X$r_1)
+```
+
+
+```{r}
+Y <- rep(NA,ncol(labels))
+unique(labels[1,])
+```
+
+primitive EDA: 
+
+1. find the range of all the variables
+we realize that the response variable's value is not beyond [-1,1], but rather more expansive.
+
+```{r}
+## maximum and minimum of response values across the entire dataframe
+max(X,na.rm=TRUE)
+min(X,na.rm=TRUE)
+```
+
+plot the distribution of the response data: (this is a very wide data, so we may not)
+
+symmetricity (Gausiann!!! 后面继续check)
+
+we find that the data has indeed a mean of approximately 0, as the small discrepancy may be just some recorded error.
+
+```{r}
+mean(X$r_1)
+mean(X$r_2)
+mean(X$r_3)
+
+### wildcard case, then have mean(X$r_1) to mean(X$r_1XXX)
+### distribution of the response data in total 
+hist(X$r_1, main="Histogram of 1st variable in response matrix",col="blue",xlab="response_1",ylab="number of occurence")
+```
+
+
+Some primitive correlation analysis:
+
+Is there correlation between v1, v2?
+
+```{r}
+cor(X$r_1,X$r_2)
+```
+
+the whole correlation matrix of all responses:
+
+```{r}
+# cor(X, method = c("pearson", "kendall", "spearman"))
+library("Hmisc")
+
+X<-data.matrix(X) # coerce object into double
+res2 <- rcorr(X)
+
+
+## Extract the first five correlation coefficients
+res2$r[1:5]
+length(res2$r)
+# Extract p-values
+
+### see how many NAs are there
+res2$P[1:5]
+sum(is.na(res2$P)) ## 8428 NAs 数据本身没有NA, diagonal之类的process过程中出现NA
+
+length(res2$P)
+```
+```{r}
+hist(res2$r, col="blue", xlab="correlation coefficients of variables",ylab="number of variables",main="Histogram of Correlation Coefficients")
+hist(res2$P, col="green",xlab="power of correlation of variables", ylab="P-values of all pairwise correlation",main="Histogram of Correlation Power")
+```
+
+Plot1: correlation coefficients distribution
+Plot2: correlation power distribution
+Plot3: dimension-reduction method (based on ROI names)
+Plot4: boxplot of response levels vs ROI
+
+```{r}
+r1 <- responses[,which(roi==1)]
+colnames(r1) <- paste0("V1_", as.character(c(1:ncol(r1))))
+r2 <- responses[,which(roi==2)]
+colnames(r2) <- paste0("V2_", as.character(c(1:ncol(r2))))
+r3 <- responses[,which(roi==3)]
+colnames(r3) <- paste0("V3_", as.character(c(1:ncol(r3))))
+r4 <- responses[,which(roi==4)]
+colnames(r4) <- paste0("V3A_", as.character(c(1:ncol(r4))))
+r5 <- responses[,which(roi==5)]
+colnames(r5) <- paste0("V3B_", as.character(c(1:ncol(r5))))
+r6 <- responses[,which(roi==6)]
+colnames(r6) <- paste0("V4_", as.character(c(1:ncol(r6))))
+r7 <- responses[,which(roi==7)]
+colnames(r7) <- paste0("LatOcc_", as.character(c(1:ncol(r7))))
+
+X <- cbind(r1,r2,r3,r4,r5,r6,r7)
+```
+
+```{r}
+pc <- prcomp(responses, scale=TRUE)
+names(pc)
+```
+
+```{r}
+### ROI represents the category in brain
+boxplot_theme <- theme_bw() + theme(legend.position = "none",plot.margin = margin(t = 5, r = 50, b = 5, l = 0, unit = "pt"), axis.text.x = element_text(angle = -60, vjust = 0, hjust = 0))
+
+
+
+
+ggplot(aes(x = forcats::fct_reorder(roi, -responses, .fun = median), y = responses, fill = roi)) + geom_boxplot() + xlab("ROI") +
+ylab("Response level") + ggtitle("Response level by ROI") + boxplot_theme
+```
+
+
+
+
