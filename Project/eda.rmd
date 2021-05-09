@@ -14,15 +14,23 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 responses<-as.data.frame(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/responses.csv",skip=1,header=FALSE))[,-1]
 
+responses_test<-as.data.frame(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/responses_test.csv",skip=1,header=FALSE))[,-1]
+
 labels<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/labels.csv",skip=1,header=FALSE))[,-1]
 
+labels_val<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/labels_val.csv",skip=1,header=FALSE))[,-1]
+
 ## ROI is categorical: the values are 1 to 8
-roi <- as.matrix(fread("~/Desktop/571Datasets/Project_data/roi.csv",skip=1, header=FALSE))[,-1]
+roi <- read.csv("~/Desktop/571Datasets/Project_data/roi.csv")
 roi_names <- as.matrix(fread("~/Desktop/571Datasets/Project_data/roi_names.csv",skip=1, header=FALSE))
+
+stimuli_test<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/stimuli_test.csv",skip=1,header=FALSE))[,-1]
+
+stimuli<-as.matrix(fread("/Users/lorrywu/Desktop/571Datasets/Project_data/stimuli.csv",skip=1,header=FALSE))[,-1]
 ```
 
 
-Find the dimension of the dataframe to be 1750 units by 8000 voxels of each unit, which is a stimuli picture.
+Find the dimension of the data frame to be 1750 units by 8000 voxels of each unit, which is a stimuli picture.
 ```{r}
 dim(responses)
 
@@ -75,7 +83,7 @@ mean(X$r_3)
 
 ### wildcard case, then have mean(X$r_1) to mean(X$r_1XXX)
 ### distribution of the response data in total 
-hist(X$r_1, col="")
+hist(X$r_1, main="Histogram of 1st variable in response matrix",col="blue",xlab="response_1",ylab="number of occurence")
 ```
 
 
